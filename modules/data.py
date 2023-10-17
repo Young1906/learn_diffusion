@@ -8,6 +8,8 @@ from torch.utils.data import DataLoader
 from torch.utils.data import random_split
 from torchvision import transforms
 from torchvision.datasets import MNIST
+from collections import Counter
+from sklearn.preprocessing import LabelEncoder
 
 class MNISTDataModule(L.LightningDataModule):
     def __init__(
@@ -68,20 +70,6 @@ class MNISTDataModule(L.LightningDataModule):
                 self.mnist_predict,
                 batch_size=self.batch_size)
 
-class LabelEncoder:
-    def __init__(self):
-        self.__is_fit = False
-
-    def fit(self, label):
-        label = list(set(label))
-        self.idx2lab = {i:v for i, v in enumerate(label)}
-        self.lab2idx = {v:i for i, v in enumerate(label)}
-        self.__is_fit = True
-
-    def transform(self, label):
-        assert self.__is_fit, ValueError("Encoder not fitted yet")
-        return np.array([self.lab2idx[x] for x in label])
-
 
 class EcoliDataset(torch.utils.data.Dataset):
     def __init__(self, pth: str):
@@ -94,6 +82,11 @@ class EcoliDataset(torch.utils.data.Dataset):
         self.le = LabelEncoder()
         self.le.fit(y)
         self.y = self.le.transform(y)
+        
+        # Convert y from 8 class to binary class
+        # {0: 143, 1: 77, 7: 52, 4: 35, 5: 20, 6: 5, 3: 2, 2: 2})
+        self.y = (self.y >= 6) * 1 
+
 
     def __getitem__(self, idx):
         if torch.is_tensor(idx):

@@ -169,13 +169,24 @@ class LightCVAE(L.LightningModule):
         x_res, mu, logvar = self.cvae(x, y)
         loss = self.elbo(x_res, x, mu, logvar)
 
-        self.log("Loss", loss, prog_bar=True)
+        self.log("train-loss", loss, prog_bar=True)
 
         return loss
 
+
+    @torch.no_grad()
+    def validation_step(self, batch, batch_idx):
+        # unpacking
+        x, y = batch
+        x_res, mu, logvar = self.cvae(x, y)
+        loss = self.elbo(x_res, x, mu, logvar)
+
+        self.log("valid-loss", loss, prog_bar=True)
+
+
     def on_train_epoch_end(self):
         # generate random image
-        z = torch.rand((8, 256)).to(self.device)
+        z = torch.randn((8, 256)).to(self.device)
         c = torch.randint(low=0, high=10, size=(8,)).to(self.device)
         imgs = self.cvae.decoder(z, c)
 

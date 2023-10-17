@@ -25,6 +25,7 @@ def main(
         max_epochs:int):
 
     # Fit a conditional VAE on the dataset
+    # --------------------------------------------------
     dm = EcoliDataModule(batch_size, num_workers, pth)
     model = LightTabularCVAE(input_dim=input_dim, n_class=n_class, z_dim=z_dim)
 
@@ -32,7 +33,6 @@ def main(
             logger = L.pytorch.loggers.tensorboard.TensorBoardLogger(
                 "logs", name=logname),
             max_epochs = max_epochs)
-
     trainer.fit(model, dm)
 
 
