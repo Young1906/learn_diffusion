@@ -3,5 +3,6 @@ dev:
 		--batch_size 128\
 		--num_workers 4\
 		--z_dim 256\
+		--n_class 10\
 		--max_epochs 10
 

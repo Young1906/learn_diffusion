@@ -2,17 +2,18 @@ import lightning as L
 import click
 
 from modules.data import MNISTDataModule
-from modules.vae import LightVAE, LightVAE_v2
+from modules.cvae import LightCVAE
 
 
 @click.command()
 @click.option("--batch_size", type=int, required=True)
 @click.option("--num_workers", type=int, required=True)
 @click.option("--z_dim", type=int, required=True)
+@click.option("--n_class", type=int, required=True)
 @click.option("--max_epochs", type=int, required=True)
-def main(batch_size: int, num_workers: int, z_dim: int, max_epochs:int):
+def main(batch_size: int, num_workers: int, z_dim: int, n_class: int, max_epochs:int):
     dm = MNISTDataModule(batch_size, num_workers, "datasets")
-    model = LightVAE_v2(z_dim, 10)
+    model = LightCVAE(z_dim, n_class)
 
     trainer = L.Trainer(
             logger = L.pytorch.loggers.tensorboard.TensorBoardLogger(
