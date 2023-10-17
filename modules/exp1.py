@@ -98,7 +98,7 @@ def main(checkpoint:str,
     X, y, counter = build_dataset(dset)
 
     # Train test split
-    X, X_test, y, y_test = train_test_split(X, y, test_size=.25, stratify=y)
+    X, X_test, y, y_test = train_test_split(X, y, test_size=.25)
 
     # baseline
     # ---------------------------------------------------------
