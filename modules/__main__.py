@@ -1,9 +1,8 @@
 import lightning as L
 import click
 
-from modules.data import MNISTDataModule
-from modules.cvae import LightCVAE
-
+from modules.data import EcoliDataModule, MNISTDataModule
+from modules.cvae import LightTabularCVAE, LightCVAE
 
 @click.command()
 @click.option("--batch_size", type=int, required=True)
@@ -16,8 +15,7 @@ def main(batch_size: int, num_workers: int, z_dim: int, n_class: int, max_epochs
     model = LightCVAE(z_dim, n_class)
 
     trainer = L.Trainer(
-            logger = L.pytorch.loggers.tensorboard.TensorBoardLogger(
-                "logs"),
+            logger = L.pytorch.loggers.tensorboard.TensorBoardLogger("logs"),
             max_epochs = max_epochs)
 
     trainer.fit(model, dm)

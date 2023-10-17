@@ -188,3 +188,107 @@ class LightCVAE(L.LightningModule):
         return torch.optim.Adam(
                 self.parameters(),
                 lr=1e-2)
+
+
+class DenseEcoder(nn.Module):
+    def __init__(self, input_dim: int, n_class: int, z_dim: int):
+        super().__init__()
+        self.n_class = n_class
+        self.fc = nn.Sequential(
+                nn.Linear(input_dim, input_dim//2),
+                nn.LeakyReLU(),
+                nn.Linear(input_dim//2, input_dim//2),
+                nn.Tanh())
+
+        self.mu = nn.Sequential(
+                nn.Linear(input_dim//2 + n_class, z_dim),
+                nn.Tanh())
+
+        self.logvar = nn.Sequential(
+                nn.Linear(input_dim//2 + n_class, z_dim),
+                nn.Tanh())
+
+    def forward(self, x, y):
+        y = F.one_hot(y, num_classes=self.n_class)
+        z = torch.concat([self.fc(x), y], -1)
+        return self.mu(z), self.logvar(z)
+
+
+class DenseDecoder(nn.Module):
+    def __init__(self, input_dim: int, n_class: int, z_dim: int):
+        super().__init__()
+        self.fc = nn.Sequential(
+                nn.Linear(z_dim + n_class, input_dim//2),
+                nn.LeakyReLU(),
+                nn.Linear(input_dim//2, input_dim),
+                nn.Tanh())
+        self.n_class=n_class
+
+    def forward(self, x, y):
+        y = F.one_hot(y, num_classes=self.n_class)
+        return self.fc(torch.concat([x, y], -1))
+
+
+
+
+class TabularCVAE(nn.Module):
+    def __init__(self, input_dim: int, n_class: int, z_dim: int):
+        super().__init__()
+        self.encoder = DenseEcoder(input_dim, n_class, z_dim)
+        self.decoder = DenseDecoder(input_dim, n_class, z_dim)
+
+    def forward(self, x, y):
+        mu, logvar  = self.encoder(x, y)
+        epsilon = torch.randn(mu.size()).type_as(x)
+
+        z = mu + epsilon * torch.exp(logvar)
+        x_res = self.decoder(z, y)
+
+        return x_res, mu, logvar
+
+
+
+class LightTabularCVAE(L.LightningModule):
+    def __init__(self, input_dim: int, n_class: int, z_dim: int):
+        super().__init__()
+        self.cvae = TabularCVAE(input_dim, n_class, z_dim)
+
+
+    @staticmethod
+    def elbo(x_res, x, mu, logvar) -> torch.Tensor:
+        # reconstruction loss
+        res = ((x_res - x)**2).mean()
+
+        kl = -0.5 * torch.sum(
+                1 + logvar - mu.pow(2) - logvar.exp())
+
+        return 0.5 * res + 0.5 * kl
+
+
+    def training_step(self, batch, batch_idx):
+        # unpacking
+        x, y = batch
+        x_res, mu, logvar = self.cvae(x, y)
+        loss = self.elbo(x_res, x, mu, logvar)
+
+        self.log("train-loss", loss, prog_bar=True)
+
+        return loss
+
+    @torch.no_grad()
+    def validation_step(self, batch, batch_idx):
+        # unpacking
+        x, y = batch
+        x_res, mu, logvar = self.cvae(x, y)
+        loss = self.elbo(x_res, x, mu, logvar)
+
+        self.log("valid-loss", loss, prog_bar=True)
+
+        return loss
+
+
+    def configure_optimizers(self):
+        return torch.optim.Adam(
+                self.parameters(),
+                lr=1e-3)
+

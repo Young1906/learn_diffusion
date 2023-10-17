@@ -1,12 +1,15 @@
-import lightning as pl
+from collections import defaultdict
 
-from torch.utils.data import random_split, DataLoader
-from torchvision.datasets import MNIST
+import lightning as L
+import numpy as np
+import pandas as pd
+import torch
+from torch.utils.data import DataLoader
+from torch.utils.data import random_split
 from torchvision import transforms
+from torchvision.datasets import MNIST
 
-
-
-class MNISTDataModule(pl.LightningDataModule):
+class MNISTDataModule(L.LightningDataModule):
     def __init__(
             self,
             batch_size: int,
@@ -64,3 +67,103 @@ class MNISTDataModule(pl.LightningDataModule):
         return DataLoader(
                 self.mnist_predict,
                 batch_size=self.batch_size)
+
+class LabelEncoder:
+    def __init__(self):
+        self.__is_fit = False
+
+    def fit(self, label):
+        label = list(set(label))
+        self.idx2lab = {i:v for i, v in enumerate(label)}
+        self.lab2idx = {v:i for i, v in enumerate(label)}
+        self.__is_fit = True
+
+    def transform(self, label):
+        assert self.__is_fit, ValueError("Encoder not fitted yet")
+        return np.array([self.lab2idx[x] for x in label])
+
+
+class EcoliDataset(torch.utils.data.Dataset):
+    def __init__(self, pth: str):
+        super().__init__()
+        df = pd.read_csv(pth, sep="\s+", header=None)
+        self.X = np.array(df.iloc[:, 1:-1].values)
+        y = df.iloc[:, -1].values
+
+        # label encoder
+        self.le = LabelEncoder()
+        self.le.fit(y)
+        self.y = self.le.transform(y)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.to_list()
+
+        x, y = self.X[idx, :], self.y[idx]
+        x = torch.tensor(x, dtype=torch.float)
+        y = torch.tensor(y, dtype=torch.int64)
+
+        return x, y
+
+    def __len__(self):
+        N, _ = self.X.shape
+        return N
+
+
+
+class EcoliDataModule(L.LightningDataModule):
+    def __init__(self, batch_size: int, num_workers: int, pth: str):
+        """
+        Args:
+        - batch size
+        - num_workers
+        - pth: path to datadir
+        """
+        # read .data files
+        super().__init__()
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.pth = pth
+
+    def prepare_data(self):
+        self.ecoli_full = EcoliDataset(self.pth)
+
+    def setup(self, stage):
+        if stage == "fit":
+            N = len(self.ecoli_full)
+            N_ = int(N * .2)
+            self.ecoli_train, self.ecoli_valid = random_split(
+                    self.ecoli_full, [N - N_, N_]) 
+
+
+        if stage == "test":
+            pass
+
+        if stage == "predict":
+            pass
+
+    def train_dataloader(self):
+        return DataLoader(
+                self.ecoli_train,
+                batch_size=self.batch_size,
+                shuffle=True,
+                num_workers = self.num_workers)
+
+    def val_dataloader(self):
+        return DataLoader(
+                self.ecoli_valid,
+                batch_size=self.batch_size,
+                num_workers = self.num_workers)
+
+    
+
+
+
+if __name__ == "__main__":
+    dm = EcoliDataModule(8, 4, "datasets/ECOLI/ecoli.data")
+    dm.prepare_data()
+    dm.setup("fit")
+
+    for (x, y) in dm.train_dataloader():
+        print(x.shape, y)
+
