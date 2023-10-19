@@ -1,5 +1,5 @@
 dev: 
-	python -m modules.data
+	python -m modules.vae.data
 
 exp1:
 	python -m modules.exp1\

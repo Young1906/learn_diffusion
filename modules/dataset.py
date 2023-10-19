@@ -7,7 +7,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data import random_split
 from torchvision import transforms
-from torchvision.datasets import MNIST, CelebA
+from torchvision.datasets import MNIST, CelebA, Caltech256
 
 class DataModuleWrapper(L.LightningDataModule):
     def __init__(
@@ -99,6 +99,15 @@ def build_datamodule(
                 split='all',
                 download=True,
                 transform=transform)
+
+    elif name == "caltech256":
+        transform = transforms.Compose([
+            transforms.ToTensor(),])
+
+        ds = Caltech256(
+                root=ROOT,
+                transform=transform,
+                download=True)
     else:
         raise ValueError(name)
 
@@ -108,7 +117,6 @@ def build_datamodule(
             val_split=val_split,
             batch_size=batch_size,
             num_workers=num_workers)
-
 
 
 if __name__ == "__main__":
